@@ -1,9 +1,8 @@
 import express from "express";
-import { customers } from "./data/customers.js";
 import mongoose from "mongoose";
 import "dotenv/config"; // To hide the mongo URI
 import { dBase } from "./util/dbUtils.js";
-import { dbSchema, joiSchema } from "./schema/dbSchemas.js";
+import { dbSchema, joiSchema } from "./schema/schemas.js";
 
 const app = express();
 app.use(express.json());
@@ -18,13 +17,20 @@ mongoose
   })
   .catch((error) => console.log("Not connected", error));
 
-
 app.get("/", (req, res) => {
   res.send("Hello world.");
   res.end();
 });
 
-app.get("/api/users", (req, res) => {
+app.get("/api/users", async (req, res) => {
+  try {
+    const response = await dBase.getUsers();
+    res.status(200).json(response);
+    res.end();
+  } catch (error) {
+    res.status(error.status || 500).json({ Error: error.message });
+    res.end();
+  }
 });
 
 app.get("/api/users/:id", (req, res) => {
@@ -37,14 +43,14 @@ app.post("/api/users", async (req, res) => {
 
   if (!firstName || !lastName || !email || !address) {
     res.status(400).json({ error: "Missing data!" });
-    res.end();
+    return;
   }
 
   const joiValidate = joiSchema.user.validate(user);
 
   if (joiValidate.error) {
     res.status(400).json({ error: joiValidate.error.details[0].message });
-    res.end();
+    return;
   }
 
   // * This the model of the database
@@ -62,10 +68,8 @@ app.post("/api/users", async (req, res) => {
   try {
     const response = await dBase.createUser(newUser);
     res.status(201).json(response);
-    res.end();
   } catch (error) {
-    res.status(error.status || 500).json({ Error: error.message });
-    res.end();
+    res.status(error.status || 500).json({ message: error.message });
   }
 });
 
